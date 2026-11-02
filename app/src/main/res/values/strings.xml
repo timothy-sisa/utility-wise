@@ -1,3 +1,9 @@
 <resources>
     <string name="app_name">UtilityWise</string>
+
+    <string name="utility_electricity">Electricity</string>
+    <string name="utility_gas">Gas</string>
+    <string name="utility_broadband">Broadband</string>
+
+    <string name="unit_kilowatt_hours">kWh</string>
 </resources>
