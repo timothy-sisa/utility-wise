@@ -2,10 +2,13 @@ package com.timothysisa.utilitywise.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val Purple80 = Color(0xFFD0BCFF)
-val PurpleGrey80 = Color(0xFFCCC2DC)
-val Pink80 = Color(0xFFEFB8C8)
+val Evergreen = Color(0xFF013220)
+val ForestGreen = Color(0xFF0B4430)
+val PineGreen = Color(0xFF14523C)
+val MossGreen = Color(0xFF1F5E48)
 
-val Purple40 = Color(0xFF6650a4)
-val PurpleGrey40 = Color(0xFF625b71)
-val Pink40 = Color(0xFF7D5260)
+val Parchment = Color(0xFFF3F1E8)
+val Sage = Color(0xFFA9C2B5)
+
+val Wheat = Color(0xFFEADCA6)
+val Mint = Color(0xFF8CC7A6)

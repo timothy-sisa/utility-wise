@@ -1,45 +1,31 @@
 package com.timothysisa.utilitywise.ui.theme
 
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
-)
-
-private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
+// The app is dark only, so one scheme is used regardless of the system setting
+// and dynamic colour is not applied.
+private val UtilityWiseColorScheme = darkColorScheme(
+    primary = Wheat,
+    onPrimary = Evergreen,
+    secondary = Mint,
+    onSecondary = Evergreen,
+    background = Evergreen,
+    onBackground = Parchment,
+    surface = ForestGreen,
+    onSurface = Parchment,
+    surfaceVariant = PineGreen,
+    onSurfaceVariant = Sage,
+    surfaceContainer = ForestGreen,
+    outline = MossGreen,
+    outlineVariant = MossGreen
 )
 
 @Composable
-fun UtilityWiseTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
-    content: @Composable () -> Unit
-) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
-
+fun UtilityWiseTheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = UtilityWiseColorScheme,
         typography = Typography,
         content = content
     )
