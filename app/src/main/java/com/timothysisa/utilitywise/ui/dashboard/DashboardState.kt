@@ -1,6 +1,7 @@
 package com.timothysisa.utilitywise.ui.dashboard
 
 import com.timothysisa.utilitywise.data.UtilityRepository
+import com.timothysisa.utilitywise.model.Housemate
 import com.timothysisa.utilitywise.model.UtilityType
 import java.time.LocalDate
 import java.time.YearMonth
@@ -12,13 +13,14 @@ data class DashboardState(
     val monthlyTotal: Double,
     val changeFromPreviousMonth: Double,
     val utilitySummaries: List<UtilitySummary>,
-    val latestReadings: List<ReadingSummary>
+    val latestReadings: List<ReadingSummary>,
+    val housemates: List<Housemate>,
+    val unpaidBillsTotal: Double
 )
 
 data class UtilitySummary(
     val type: UtilityType,
-    val cost: Double,
-    val unitsUsed: Double
+    val cost: Double
 )
 
 data class ReadingSummary(
@@ -53,8 +55,7 @@ fun dashboardStateFor(month: YearMonth): DashboardState {
         utilitySummaries = UtilityType.entries.map { type ->
             UtilitySummary(
                 type = type,
-                cost = UtilityRepository.monthlyTotalFor(type, month),
-                unitsUsed = UtilityRepository.unitsFor(type, month)
+                cost = UtilityRepository.monthlyTotalFor(type, month)
             )
         },
         latestReadings = UtilityRepository.latestReadings(LATEST_READINGS_COUNT).map { reading ->
@@ -65,6 +66,8 @@ fun dashboardStateFor(month: YearMonth): DashboardState {
                 date = reading.date,
                 cost = UtilityRepository.costOf(reading)
             )
-        }
+        },
+        housemates = UtilityRepository.housemates.toList(),
+        unpaidBillsTotal = UtilityRepository.unpaidBillsTotal()
     )
 }

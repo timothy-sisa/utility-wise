@@ -2,6 +2,7 @@ package com.timothysisa.utilitywise.data
 
 import androidx.compose.runtime.mutableStateListOf
 import com.timothysisa.utilitywise.model.Bill
+import com.timothysisa.utilitywise.model.Housemate
 import com.timothysisa.utilitywise.model.Reading
 import com.timothysisa.utilitywise.model.UtilityType
 import java.time.LocalDate
@@ -15,7 +16,10 @@ object UtilityRepository {
     private const val ELECTRICITY_TARIFF = 0.35
     private const val GAS_TARIFF = 0.13
     private const val SAMPLE_YEAR = 2026
-    private const val SAMPLE_HOUSEHOLD_SIZE = 4
+
+    // A meter only counts up, so on the same date the higher value was read later. The id
+    // breaks exact ties so that two equal readings never both count as each other's previous.
+    private val chronologicalOrder = compareBy<Reading>({ it.date }, { it.value }, { it.id })
 
     // Snapshot state lists let any composable that reads them recompose on change.
     private val mutableReadings = mutableStateListOf(
@@ -30,6 +34,13 @@ object UtilityRepository {
         gasReading(id = 9, value = 12520.0, month = Month.OCTOBER, day = 25)
     )
 
+    private val mutableHousemates = mutableStateListOf(
+        Housemate(id = 1, name = "Timothy"),
+        Housemate(id = 2, name = "Faith"),
+        Housemate(id = 3, name = "Brian"),
+        Housemate(id = 4, name = "Wanjiru")
+    )
+
     private val mutableBills = mutableStateListOf(
         Bill(
             id = 1,
@@ -38,7 +49,7 @@ object UtilityRepository {
             periodLabel = "Sep and Oct",
             dueDate = LocalDate.of(SAMPLE_YEAR, Month.NOVEMBER, 5),
             isPaid = false,
-            people = SAMPLE_HOUSEHOLD_SIZE
+            people = mutableHousemates.size
         ),
         Bill(
             id = 2,
@@ -47,7 +58,7 @@ object UtilityRepository {
             periodLabel = "Sep and Oct",
             dueDate = LocalDate.of(SAMPLE_YEAR, Month.NOVEMBER, 8),
             isPaid = false,
-            people = SAMPLE_HOUSEHOLD_SIZE
+            people = mutableHousemates.size
         ),
         Bill(
             id = 3,
@@ -56,13 +67,15 @@ object UtilityRepository {
             periodLabel = "November",
             dueDate = LocalDate.of(SAMPLE_YEAR, Month.NOVEMBER, 1),
             isPaid = true,
-            people = SAMPLE_HOUSEHOLD_SIZE
+            people = mutableHousemates.size
         )
     )
 
     val readings: List<Reading> = mutableReadings
 
     val bills: List<Bill> = mutableBills
+
+    val housemates: List<Housemate> = mutableHousemates
 
     /** Returns the reading with the given [id], or null if there is none. */
     fun getReadingById(id: Long): Reading? = mutableReadings.firstOrNull { it.id == id }
@@ -93,12 +106,36 @@ object UtilityRepository {
      * so it returns 0.
      */
     fun unitsUsed(reading: Reading): Double {
-        val previousReading = mutableReadings
-            .filter { it.type == reading.type && it.date < reading.date }
-            .maxByOrNull { it.date }
+        val previousReading = readingsOf(reading.type, excludingId = reading.id)
+            .filter { chronologicalOrder.compare(it, reading) < 0 }
+            .maxWithOrNull(chronologicalOrder)
             ?: return 0.0
         return reading.value - previousReading.value
     }
+
+    /**
+     * Returns the newest reading of [type] taken on or before [date], or null if there is
+     * none. Pass the id of a reading being edited as [excludingId] so it is not compared
+     * with itself.
+     */
+    fun previousReading(type: UtilityType, date: LocalDate, excludingId: Long? = null): Reading? =
+        readingsOf(type, excludingId)
+            .filter { it.date <= date }
+            .maxWithOrNull(chronologicalOrder)
+
+    /**
+     * Returns the oldest reading of [type] taken after [date], or null if there is none.
+     * Pass the id of a reading being edited as [excludingId] so it is not compared with
+     * itself.
+     */
+    fun nextReading(type: UtilityType, date: LocalDate, excludingId: Long? = null): Reading? =
+        readingsOf(type, excludingId)
+            .filter { it.date > date }
+            .minWithOrNull(chronologicalOrder)
+
+    /** Returns the tariff of the newest reading of [type], or null if there are no readings. */
+    fun latestTariff(type: UtilityType): Double? =
+        readingsOf(type).maxWithOrNull(chronologicalOrder)?.tariff
 
     /** Returns the cost in euro of the units consumed up to [reading], at its tariff. */
     fun costOf(reading: Reading): Double = unitsUsed(reading) * reading.tariff
@@ -125,9 +162,15 @@ object UtilityRepository {
     fun unitsFor(type: UtilityType, yearMonth: YearMonth): Double =
         readingsIn(type, yearMonth).sumOf { unitsUsed(it) }
 
+    /** Returns the total in euro of every bill that has not been paid yet. */
+    fun unpaidBillsTotal(): Double = mutableBills.filterNot { it.isPaid }.sumOf { it.amount }
+
     /** Returns up to [count] readings of any type, newest first. */
     fun latestReadings(count: Int): List<Reading> =
         mutableReadings.sortedByDescending { it.date }.take(count)
+
+    private fun readingsOf(type: UtilityType, excludingId: Long? = null): List<Reading> =
+        mutableReadings.filter { it.type == type && it.id != excludingId }
 
     private fun readingsIn(type: UtilityType, yearMonth: YearMonth): List<Reading> =
         mutableReadings.filter { it.type == type && YearMonth.from(it.date) == yearMonth }
