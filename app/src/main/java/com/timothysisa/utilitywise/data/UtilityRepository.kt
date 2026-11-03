@@ -17,6 +17,10 @@ object UtilityRepository {
     private const val GAS_TARIFF = 0.13
     private const val SAMPLE_YEAR = 2026
 
+    // A meter only counts up, so on the same date the higher value was read later. The id
+    // breaks exact ties so that two equal readings never both count as each other's previous.
+    private val chronologicalOrder = compareBy<Reading>({ it.date }, { it.value }, { it.id })
+
     // Snapshot state lists let any composable that reads them recompose on change.
     private val mutableReadings = mutableStateListOf(
         electricityReading(id = 1, value = 23309.0, month = Month.AUGUST, day = 31),
@@ -102,12 +106,36 @@ object UtilityRepository {
      * so it returns 0.
      */
     fun unitsUsed(reading: Reading): Double {
-        val previousReading = mutableReadings
-            .filter { it.type == reading.type && it.date < reading.date }
-            .maxByOrNull { it.date }
+        val previousReading = readingsOf(reading.type, excludingId = reading.id)
+            .filter { chronologicalOrder.compare(it, reading) < 0 }
+            .maxWithOrNull(chronologicalOrder)
             ?: return 0.0
         return reading.value - previousReading.value
     }
+
+    /**
+     * Returns the newest reading of [type] taken on or before [date], or null if there is
+     * none. Pass the id of a reading being edited as [excludingId] so it is not compared
+     * with itself.
+     */
+    fun previousReading(type: UtilityType, date: LocalDate, excludingId: Long? = null): Reading? =
+        readingsOf(type, excludingId)
+            .filter { it.date <= date }
+            .maxWithOrNull(chronologicalOrder)
+
+    /**
+     * Returns the oldest reading of [type] taken after [date], or null if there is none.
+     * Pass the id of a reading being edited as [excludingId] so it is not compared with
+     * itself.
+     */
+    fun nextReading(type: UtilityType, date: LocalDate, excludingId: Long? = null): Reading? =
+        readingsOf(type, excludingId)
+            .filter { it.date > date }
+            .minWithOrNull(chronologicalOrder)
+
+    /** Returns the tariff of the newest reading of [type], or null if there are no readings. */
+    fun latestTariff(type: UtilityType): Double? =
+        readingsOf(type).maxWithOrNull(chronologicalOrder)?.tariff
 
     /** Returns the cost in euro of the units consumed up to [reading], at its tariff. */
     fun costOf(reading: Reading): Double = unitsUsed(reading) * reading.tariff
@@ -140,6 +168,9 @@ object UtilityRepository {
     /** Returns up to [count] readings of any type, newest first. */
     fun latestReadings(count: Int): List<Reading> =
         mutableReadings.sortedByDescending { it.date }.take(count)
+
+    private fun readingsOf(type: UtilityType, excludingId: Long? = null): List<Reading> =
+        mutableReadings.filter { it.type == type && it.id != excludingId }
 
     private fun readingsIn(type: UtilityType, yearMonth: YearMonth): List<Reading> =
         mutableReadings.filter { it.type == type && YearMonth.from(it.date) == yearMonth }
