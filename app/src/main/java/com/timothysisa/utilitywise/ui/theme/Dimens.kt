@@ -10,7 +10,7 @@ object Dimens {
     val SpacingExtraLarge = 18.dp
 
     val ScreenPadding = 18.dp
-    val ScreenBottomPadding = 100.dp
+    val FloatingNavigationClearance = 100.dp
 
     val CornerRadiusExtraSmall = 12.dp
     val CornerRadiusSmall = 14.dp
