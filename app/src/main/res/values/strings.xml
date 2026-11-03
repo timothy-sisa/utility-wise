@@ -48,6 +48,7 @@
     <string name="add_reading_adds_about">This reading adds about</string>
     <string name="add_reading_cost_breakdown">%1$s × %2$s</string>
     <string name="add_reading_save">Save reading</string>
+    <string name="add_reading_not_found">That reading no longer exists</string>
 
     <string name="error_required">Required</string>
     <string name="error_not_a_number">Enter a number</string>
