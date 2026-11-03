@@ -1,6 +1,7 @@
 package com.timothysisa.utilitywise.ui.dashboard
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,10 +12,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -31,6 +30,9 @@ import androidx.compose.material.icons.rounded.WavingHand
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -63,30 +65,44 @@ import kotlin.math.roundToLong
 private const val READING_DATE_PATTERN = "d MMM"
 private const val SPEND_MONTH_PATTERN = "MMM yyyy"
 
+/**
+ * The home screen. [onReadingClick] receives the id of the reading row the user tapped, and
+ * messages sent to [snackbarHostState] appear above the floating navigation bar.
+ */
 @Composable
 fun DashboardScreen(
     state: DashboardState,
+    snackbarHostState: SnackbarHostState,
     onRefreshClick: () -> Unit,
     onShareClick: () -> Unit,
     onSeeAllReadingsClick: () -> Unit,
     onAddReadingClick: () -> Unit,
+    onReadingClick: (Long) -> Unit,
     onUsageClick: () -> Unit,
     onBillsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Box {
+    Scaffold(
+        modifier = modifier,
+        containerColor = MaterialTheme.colorScheme.background,
+        snackbarHost = {
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.padding(bottom = Dimens.FloatingNavigationClearance)
+            )
+        }
+    ) { innerPadding ->
+        Box(modifier = Modifier.fillMaxSize()) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .statusBarsPadding()
-                    .navigationBarsPadding()
+                    .padding(innerPadding)
                     .padding(
                         start = Dimens.ScreenPadding,
                         top = Dimens.SpacingSmall,
                         end = Dimens.ScreenPadding,
-                        bottom = Dimens.ScreenBottomPadding
+                        bottom = Dimens.FloatingNavigationClearance
                     )
             ) {
                 DashboardTopBar(onRefreshClick = onRefreshClick)
@@ -110,7 +126,7 @@ fun DashboardScreen(
                     unpaidBillsTotal = state.unpaidBillsTotal
                 )
                 RecentReadingsHeader(onSeeAllClick = onSeeAllReadingsClick)
-                RecentReadingsCard(readings = state.latestReadings)
+                RecentReadingsCard(readings = state.latestReadings, onReadingClick = onReadingClick)
             }
             FloatingNavigationBar(
                 onAddReadingClick = onAddReadingClick,
@@ -118,8 +134,7 @@ fun DashboardScreen(
                 onBillsClick = onBillsClick,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .navigationBarsPadding()
-                    .padding(bottom = Dimens.SpacingLarge)
+                    .padding(bottom = innerPadding.calculateBottomPadding() + Dimens.SpacingLarge)
             )
         }
     }
@@ -180,11 +195,13 @@ fun SpendSummaryCard(
 }
 
 @Composable
-fun ReadingRow(summary: ReadingSummary, modifier: Modifier = Modifier) {
+fun ReadingRow(summary: ReadingSummary, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val locale = currentLocale()
     val dateFormatter = remember(locale) { DateTimeFormatter.ofPattern(READING_DATE_PATTERN, locale) }
     Row(
-        modifier = modifier.padding(vertical = Dimens.RowPaddingVertical),
+        modifier = modifier
+            .clickable(onClick = onClick)
+            .padding(horizontal = Dimens.CardPaddingHorizontal, vertical = Dimens.RowPaddingVertical),
         verticalAlignment = Alignment.CenterVertically
     ) {
         UtilityIconCircle(type = summary.type)
@@ -500,26 +517,23 @@ private fun RecentReadingsHeader(onSeeAllClick: () -> Unit) {
 }
 
 @Composable
-private fun RecentReadingsCard(readings: List<ReadingSummary>) {
+private fun RecentReadingsCard(readings: List<ReadingSummary>, onReadingClick: (Long) -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(Dimens.CornerRadiusLarge),
         color = MaterialTheme.colorScheme.surface
     ) {
-        Column(
-            modifier = Modifier.padding(
-                horizontal = Dimens.CardPaddingHorizontal,
-                vertical = Dimens.SpacingTiny
-            )
-        ) {
+        // Rows carry their own side padding so the ripple fills the whole width of the card.
+        Column(modifier = Modifier.padding(vertical = Dimens.SpacingTiny)) {
             readings.forEachIndexed { index, reading ->
                 if (index > 0) {
                     HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = Dimens.CardPaddingHorizontal),
                         thickness = Dimens.DividerThickness,
                         color = MaterialTheme.colorScheme.outlineVariant
                     )
                 }
-                ReadingRow(summary = reading)
+                ReadingRow(summary = reading, onClick = { onReadingClick(reading.id) })
             }
         }
     }
@@ -633,10 +647,12 @@ private fun DashboardScreenPreview() {
     UtilityWiseTheme {
         DashboardScreen(
             state = dashboardStateFor(currentReportingMonth()),
+            snackbarHostState = remember { SnackbarHostState() },
             onRefreshClick = {},
             onShareClick = {},
             onSeeAllReadingsClick = {},
             onAddReadingClick = {},
+            onReadingClick = {},
             onUsageClick = {},
             onBillsClick = {}
         )
@@ -680,7 +696,7 @@ private fun ReadingRowPreview() {
     val state = dashboardStateFor(currentReportingMonth())
     UtilityWiseTheme {
         Surface(color = MaterialTheme.colorScheme.surface) {
-            ReadingRow(summary = state.latestReadings.first())
+            ReadingRow(summary = state.latestReadings.first(), onClick = {})
         }
     }
 }

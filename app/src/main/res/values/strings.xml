@@ -31,6 +31,7 @@
     <string name="dashboard_see_all">See all</string>
     <string name="reading_units_on_date">%1$s used · %2$s</string>
     <string name="dashboard_add_reading">Add a reading</string>
+    <string name="dashboard_reading_saved">Reading saved</string>
 
     <string name="add_reading_title_new">New reading</string>
     <string name="add_reading_title_edit">Edit reading</string>
