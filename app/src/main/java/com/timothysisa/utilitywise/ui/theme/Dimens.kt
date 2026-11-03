@@ -12,6 +12,7 @@ object Dimens {
     val ScreenPadding = 18.dp
     val ScreenBottomPadding = 100.dp
 
+    val CornerRadiusExtraSmall = 12.dp
     val CornerRadiusSmall = 14.dp
     val CornerRadiusMedium = 22.dp
     val CornerRadiusLarge = 24.dp
@@ -32,6 +33,7 @@ object Dimens {
     val IconSizeSmall = 20.dp
     val IconSizeMedium = 22.dp
     val IconCircleSize = 40.dp
+    val IconButtonSize = 48.dp
     val QuickActionSize = 58.dp
     val HousemateAvatarSize = 46.dp
 
@@ -39,4 +41,9 @@ object Dimens {
     val NavigationItemSpacing = 6.dp
     val NavigationItemWidth = 54.dp
     val NavigationItemHeight = 48.dp
+
+    val ButtonHeight = 56.dp
+    val FocusBorderWidth = 2.dp
+    val MeterDigitHeight = 64.dp
+    val MeterDigitSpacing = 6.dp
 }
