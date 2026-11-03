@@ -4,7 +4,6 @@
     <string name="utility_electricity">Electricity</string>
     <string name="utility_gas">Gas</string>
     <string name="utility_broadband">Broadband</string>
-    <string name="utility_fixed_charge">Fixed</string>
 
     <string name="unit_kilowatt_hours">kWh</string>
     <string name="units_with_unit">%1$,.0f %2$s</string>
@@ -17,15 +16,20 @@
     <string name="navigation_usage">Usage</string>
     <string name="navigation_bills">Bills</string>
 
+    <string name="dashboard_initials">TS</string>
     <string name="dashboard_greeting">Hi Timothy</string>
-    <string name="dashboard_month_so_far">Here\'s your %1$s so far</string>
-    <string name="dashboard_notifications">Notifications</string>
-    <string name="dashboard_spent_this_month">Spent this month</string>
+    <string name="dashboard_shake">Shake</string>
+    <string name="dashboard_estimated_spend">Estimated spend · %1$s</string>
     <string name="dashboard_change_increase">+€%1$,d on %2$s</string>
     <string name="dashboard_change_decrease">-€%1$,d on %2$s</string>
-    <string name="dashboard_latest_readings">Latest readings</string>
+    <string name="dashboard_share_summary">Share summary</string>
+    <string name="dashboard_action_reading">Reading</string>
+    <string name="dashboard_action_share">Share</string>
+    <string name="dashboard_housemates">Housemates</string>
+    <string name="dashboard_unpaid_to_split">Unpaid bills to split:</string>
+    <string name="dashboard_recent_readings">Recent readings</string>
     <string name="dashboard_see_all">See all</string>
     <string name="reading_units_on_date">%1$s used · %2$s</string>
-    <string name="dashboard_shake_to_refresh">Shake to refresh</string>
     <string name="dashboard_add_reading">Add a reading</string>
+
 </resources>

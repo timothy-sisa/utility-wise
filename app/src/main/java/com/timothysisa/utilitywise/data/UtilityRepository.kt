@@ -2,6 +2,7 @@ package com.timothysisa.utilitywise.data
 
 import androidx.compose.runtime.mutableStateListOf
 import com.timothysisa.utilitywise.model.Bill
+import com.timothysisa.utilitywise.model.Housemate
 import com.timothysisa.utilitywise.model.Reading
 import com.timothysisa.utilitywise.model.UtilityType
 import java.time.LocalDate
@@ -15,7 +16,6 @@ object UtilityRepository {
     private const val ELECTRICITY_TARIFF = 0.35
     private const val GAS_TARIFF = 0.13
     private const val SAMPLE_YEAR = 2026
-    private const val SAMPLE_HOUSEHOLD_SIZE = 4
 
     // Snapshot state lists let any composable that reads them recompose on change.
     private val mutableReadings = mutableStateListOf(
@@ -30,6 +30,13 @@ object UtilityRepository {
         gasReading(id = 9, value = 12520.0, month = Month.OCTOBER, day = 25)
     )
 
+    private val mutableHousemates = mutableStateListOf(
+        Housemate(id = 1, name = "Timothy"),
+        Housemate(id = 2, name = "Faith"),
+        Housemate(id = 3, name = "Brian"),
+        Housemate(id = 4, name = "Wanjiru")
+    )
+
     private val mutableBills = mutableStateListOf(
         Bill(
             id = 1,
@@ -38,7 +45,7 @@ object UtilityRepository {
             periodLabel = "Sep and Oct",
             dueDate = LocalDate.of(SAMPLE_YEAR, Month.NOVEMBER, 5),
             isPaid = false,
-            people = SAMPLE_HOUSEHOLD_SIZE
+            people = mutableHousemates.size
         ),
         Bill(
             id = 2,
@@ -47,7 +54,7 @@ object UtilityRepository {
             periodLabel = "Sep and Oct",
             dueDate = LocalDate.of(SAMPLE_YEAR, Month.NOVEMBER, 8),
             isPaid = false,
-            people = SAMPLE_HOUSEHOLD_SIZE
+            people = mutableHousemates.size
         ),
         Bill(
             id = 3,
@@ -56,13 +63,15 @@ object UtilityRepository {
             periodLabel = "November",
             dueDate = LocalDate.of(SAMPLE_YEAR, Month.NOVEMBER, 1),
             isPaid = true,
-            people = SAMPLE_HOUSEHOLD_SIZE
+            people = mutableHousemates.size
         )
     )
 
     val readings: List<Reading> = mutableReadings
 
     val bills: List<Bill> = mutableBills
+
+    val housemates: List<Housemate> = mutableHousemates
 
     /** Returns the reading with the given [id], or null if there is none. */
     fun getReadingById(id: Long): Reading? = mutableReadings.firstOrNull { it.id == id }
@@ -124,6 +133,9 @@ object UtilityRepository {
     /** Returns the units of [type] consumed by readings dated in [yearMonth]. */
     fun unitsFor(type: UtilityType, yearMonth: YearMonth): Double =
         readingsIn(type, yearMonth).sumOf { unitsUsed(it) }
+
+    /** Returns the total in euro of every bill that has not been paid yet. */
+    fun unpaidBillsTotal(): Double = mutableBills.filterNot { it.isPaid }.sumOf { it.amount }
 
     /** Returns up to [count] readings of any type, newest first. */
     fun latestReadings(count: Int): List<Reading> =

@@ -14,16 +14,17 @@ import com.timothysisa.utilitywise.ui.theme.UtilityWiseTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // The app is dark only, so the system bar icons stay light even in system light mode.
+        // The app is light only, so the system bar icons stay dark even in system dark mode.
         enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT)
+            statusBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
         )
         setContent {
             UtilityWiseTheme {
                 DashboardScreen(
                     state = dashboardStateFor(currentReportingMonth()),
-                    onNotificationsClick = {},
+                    onRefreshClick = {},
+                    onShareClick = {},
                     onSeeAllReadingsClick = {},
                     onAddReadingClick = {},
                     onUsageClick = {},
