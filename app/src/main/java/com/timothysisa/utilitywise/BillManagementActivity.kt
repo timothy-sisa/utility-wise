@@ -1,5 +1,6 @@
 package com.timothysisa.utilitywise
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
@@ -13,6 +14,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.material3.SnackbarResult
+import com.timothysisa.utilitywise.bills.BillSplitter
+import com.timothysisa.utilitywise.bills.BillSummaryFormatter
+import com.timothysisa.utilitywise.bills.BillSummaryTemplates
 import com.timothysisa.utilitywise.data.UtilityRepository
 import com.timothysisa.utilitywise.model.Bill
 import com.timothysisa.utilitywise.model.Housemate
@@ -21,6 +25,7 @@ import com.timothysisa.utilitywise.ui.bills.BillsScreen
 import com.timothysisa.utilitywise.ui.theme.UtilityWiseTheme
 import com.timothysisa.utilitywise.ui.theme.enableLightEdgeToEdge
 import kotlinx.coroutines.launch
+import java.time.format.DateTimeFormatter
 
 class BillManagementActivity : ComponentActivity() {
 
@@ -43,6 +48,12 @@ class BillManagementActivity : ComponentActivity() {
                     snackbarHostState = snackbarHostState,
                     onAddBillClick = { showAddBillSheet = true },
                     onAddReadingClick = { startActivity(AddReadingActivity.newIntent(this@BillManagementActivity)) },
+                    onShareBillClick = { bill ->
+                        shareBill(
+                            bill = bill,
+                            showSnackbar = { scope.launch { snackbarHostState.showSnackbar(it) } },
+                        )
+                    },
                     onMarkPaidClick = { bill ->
                         markPaid(
                             bill = bill,
@@ -100,6 +111,48 @@ class BillManagementActivity : ComponentActivity() {
             Intent(context, BillManagementActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             }
+    }
+
+    private fun shareBill(bill: Bill, showSnackbar: (String) -> Unit) {
+        val sharedHousemates = UtilityRepository.housemates.filter { it.id in bill.sharedWith }
+        val shares = BillSplitter.split(bill.amount, sharedHousemates.size)
+        val formattedShares = if ((shares.distinct().size == 1) && (sharedHousemates.size > 1)) {
+            shares.map { getString(R.string.bills_summary_each, getString(R.string.money_amount, it)) }
+        } else {
+            shares.map { getString(R.string.money_amount, it) }
+        }
+        val locale = resources.configuration.locales[0]
+        val dueDate = bill.dueDate.format(
+            DateTimeFormatter.ofPattern(getString(R.string.bills_due_date_pattern), locale)
+        )
+        val summary = BillSummaryFormatter.format(
+            utilityName = getString(bill.type.displayNameRes),
+            periodLabel = bill.periodLabel,
+            formattedAmount = getString(R.string.money_amount, bill.amount),
+            formattedDueDate = dueDate,
+            housemateNames = sharedHousemates.map { it.name },
+            formattedShares = formattedShares,
+            templates = BillSummaryTemplates(
+                evenSplit = getString(R.string.bills_summary),
+                unevenSplit = getString(R.string.bills_summary_uneven),
+                singlePerson = getString(R.string.bills_summary_single),
+                conjunction = getString(R.string.bills_conjunction_and)
+            ),
+            locale = locale
+        )
+        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, summary)
+            putExtra(
+                Intent.EXTRA_SUBJECT,
+                getString(R.string.bills_share_subject, getString(bill.type.displayNameRes))
+            )
+        }
+        try {
+            startActivity(Intent.createChooser(shareIntent, getString(R.string.bills_share_chooser)))
+        } catch (_: ActivityNotFoundException) {
+            showSnackbar(getString(R.string.bills_share_unavailable))
+        }
     }
 
     private fun markPaid(

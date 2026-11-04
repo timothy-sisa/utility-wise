@@ -65,6 +65,7 @@ fun BillsScreen(
     onAddBillClick: () -> Unit,
     onAddReadingClick: () -> Unit,
     onMarkPaidClick: (Bill) -> Unit,
+    onShareBillClick: (Bill) -> Unit,
     onHousemateToggle: (Housemate) -> Unit,
     onBillClick: (Bill) -> Unit,
     onHomeClick: () -> Unit,
@@ -102,6 +103,7 @@ fun BillsScreen(
                         bill = bill,
                         housemates = housemates,
                         onHousemateToggle = onHousemateToggle,
+                        onShareBillClick = { onShareBillClick(bill) },
                     )
                 }
                 ComingUpSection(bills = upcomingBills, onBillClick = onBillClick)
@@ -220,7 +222,8 @@ private fun NextUpCard(bill: Bill, onMarkPaidClick: () -> Unit) {
 private fun BillSplitCard(
     bill: Bill,
     housemates: List<Housemate>,
-    onHousemateToggle: (Housemate) -> Unit
+    onHousemateToggle: (Housemate) -> Unit,
+    onShareBillClick: () -> Unit
 ) {
     val sharedHousemates = housemates.filter { (id) -> id in bill.sharedWith }
     val shares = BillSplitter.split(bill.amount, sharedHousemates.size)
@@ -261,6 +264,15 @@ private fun BillSplitCard(
                 }
             }
             SplitDescription(shares = shares, modifier = Modifier.padding(top = Dimens.SpacingLarge))
+            Button(
+                onClick = onShareBillClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = Dimens.SpacingLarge)
+                    .height(Dimens.ButtonHeight)
+            ) {
+                Text(text = stringResource(R.string.bills_send_to_house_group))
+            }
         }
     }
 }
@@ -432,6 +444,7 @@ private fun BillsScreenPreview() {
             onAddBillClick = {},
             onAddReadingClick = {},
             onMarkPaidClick = {},
+            onShareBillClick = {},
             onHousemateToggle = {},
             onBillClick = {},
             onHomeClick = {},
@@ -452,6 +465,7 @@ private fun AllPaidBillsPreview() {
             onAddBillClick = {},
             onAddReadingClick = {},
             onMarkPaidClick = {},
+            onShareBillClick = {},
             onHousemateToggle = {},
             onBillClick = {},
             onHomeClick = {},
@@ -472,6 +486,7 @@ private fun UnevenSplitPreview() {
             onAddBillClick = {},
             onAddReadingClick = {},
             onMarkPaidClick = {},
+            onShareBillClick = {},
             onHousemateToggle = {},
             onBillClick = {},
             onHomeClick = {},
