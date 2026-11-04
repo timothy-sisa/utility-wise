@@ -49,7 +49,7 @@ object UtilityRepository {
             periodLabel = "Sep and Oct",
             dueDate = LocalDate.of(SAMPLE_YEAR, Month.NOVEMBER, 5),
             isPaid = false,
-            people = mutableHousemates.size
+            sharedWith = mutableHousemates.mapTo(linkedSetOf()) { it.id }
         ),
         Bill(
             id = 2,
@@ -58,7 +58,7 @@ object UtilityRepository {
             periodLabel = "Sep and Oct",
             dueDate = LocalDate.of(SAMPLE_YEAR, Month.NOVEMBER, 8),
             isPaid = false,
-            people = mutableHousemates.size
+            sharedWith = mutableHousemates.mapTo(linkedSetOf()) { it.id }
         ),
         Bill(
             id = 3,
@@ -67,7 +67,7 @@ object UtilityRepository {
             periodLabel = "November",
             dueDate = LocalDate.of(SAMPLE_YEAR, Month.NOVEMBER, 1),
             isPaid = true,
-            people = mutableHousemates.size
+            sharedWith = mutableHousemates.mapTo(linkedSetOf()) { it.id }
         )
     )
 
@@ -165,9 +165,52 @@ object UtilityRepository {
     /** Returns the total in euro of every bill that has not been paid yet. */
     fun unpaidBillsTotal(): Double = mutableBills.filterNot { it.isPaid }.sumOf { it.amount }
 
+    /** Returns the bill with the given [id], or null if there is none. */
+    fun getBillById(id: Long): Bill? = mutableBills.firstOrNull { it.id == id }
+
+    /** Stores a new [bill]. Use [nextBillId] to give it a unique id. */
+    fun addBill(bill: Bill) {
+        mutableBills.add(bill)
+    }
+
+    /** Returns an id that no stored bill uses yet. */
+    fun nextBillId(): Long = (mutableBills.maxOfOrNull { it.id } ?: 0L) + 1
+
+    /** Sets whether the bill with [id] is paid. */
+    fun setBillPaid(id: Long, isPaid: Boolean) {
+        replaceBill(id) { it.copy(isPaid = isPaid) }
+    }
+
+    /** Replaces the housemate ids sharing the bill with [id]. */
+    fun setBillSharedWith(id: Long, housemateIds: Set<Long>) {
+        require(housemateIds.isNotEmpty()) { "A bill must be shared with at least one housemate." }
+        replaceBill(id) { it.copy(sharedWith = housemateIds.toSet()) }
+    }
+
+    /** Returns the unpaid bill due first, or null when every bill has been paid. */
+    fun nextUnpaidBill(): Bill? =
+        mutableBills.filterNot { it.isPaid }.minByOrNull { it.dueDate }
+
+    /**
+     * Returns all bills except [nextUnpaidBill], with unpaid bills before paid bills and each
+     * group ordered by due date.
+     */
+    fun upcomingBills(): List<Bill> {
+        val nextBillId = nextUnpaidBill()?.id
+        return mutableBills
+            .filterNot { it.id == nextBillId }
+            .sortedWith(compareBy<Bill>({ it.isPaid }, { it.dueDate }))
+    }
+
     /** Returns up to [count] readings of any type, newest first. */
     fun latestReadings(count: Int): List<Reading> =
         mutableReadings.sortedByDescending { it.date }.take(count)
+
+    private fun replaceBill(id: Long, transform: (Bill) -> Bill) {
+        val index = mutableBills.indexOfFirst { it.id == id }
+        require(index >= 0) { "No bill with id $id" }
+        mutableBills[index] = transform(mutableBills[index])
+    }
 
     private fun readingsOf(type: UtilityType, excludingId: Long? = null): List<Reading> =
         mutableReadings.filter { it.type == type && it.id != excludingId }
