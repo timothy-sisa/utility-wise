@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -23,9 +22,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.BarChart
-import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.IosShare
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.WavingHand
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -35,22 +31,22 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import com.timothysisa.utilitywise.R
 import com.timothysisa.utilitywise.model.Housemate
 import com.timothysisa.utilitywise.model.UtilityType
 import com.timothysisa.utilitywise.ui.icon
+import com.timothysisa.utilitywise.ui.navigation.FloatingNavigationBar
+import com.timothysisa.utilitywise.ui.navigation.MainNavigationDestination
 import com.timothysisa.utilitywise.ui.theme.Dimens
 import com.timothysisa.utilitywise.ui.theme.InkMute
 import com.timothysisa.utilitywise.ui.theme.InkSoft
@@ -73,9 +69,6 @@ private const val SPEND_MONTH_PATTERN = "MMM yyyy"
 fun DashboardScreen(
     state: DashboardState,
     snackbarHostState: SnackbarHostState,
-    onRefreshClick: () -> Unit,
-    onShareClick: () -> Unit,
-    onSeeAllReadingsClick: () -> Unit,
     onAddReadingClick: () -> Unit,
     onReadingClick: (Long) -> Unit,
     onUsageClick: () -> Unit,
@@ -105,30 +98,30 @@ fun DashboardScreen(
                         bottom = Dimens.FloatingNavigationClearance
                     )
             ) {
-                DashboardTopBar(onRefreshClick = onRefreshClick)
+                DashboardTopBar()
                 Spacer(modifier = Modifier.height(Dimens.CardPaddingVertical))
                 SpendSummaryCard(
                     month = state.month,
                     monthlyTotal = state.monthlyTotal,
                     changeFromPreviousMonth = state.changeFromPreviousMonth,
-                    utilitySummaries = state.utilitySummaries,
-                    onShareClick = onShareClick
+                    utilitySummaries = state.utilitySummaries
                 )
                 QuickActionRow(
                     onAddReadingClick = onAddReadingClick,
                     onUsageClick = onUsageClick,
                     onBillsClick = onBillsClick,
-                    onShareClick = onShareClick,
                     modifier = Modifier.padding(vertical = Dimens.SpacingLarge)
                 )
                 HousematesCard(
                     housemates = state.housemates,
                     unpaidBillsTotal = state.unpaidBillsTotal
                 )
-                RecentReadingsHeader(onSeeAllClick = onSeeAllReadingsClick)
+                RecentReadingsHeader()
                 RecentReadingsCard(readings = state.latestReadings, onReadingClick = onReadingClick)
             }
             FloatingNavigationBar(
+                selectedDestination = MainNavigationDestination.HOME,
+                onHomeClick = {},
                 onAddReadingClick = onAddReadingClick,
                 onUsageClick = onUsageClick,
                 onBillsClick = onBillsClick,
@@ -146,7 +139,6 @@ fun SpendSummaryCard(
     monthlyTotal: Double,
     changeFromPreviousMonth: Double,
     utilitySummaries: List<UtilitySummary>,
-    onShareClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val locale = currentLocale()
@@ -159,8 +151,7 @@ fun SpendSummaryCard(
         color = MaterialTheme.colorScheme.inverseSurface,
         contentColor = MaterialTheme.colorScheme.inverseOnSurface
     ) {
-        Box {
-            Column(modifier = Modifier.padding(Dimens.HeroPadding)) {
+        Column(modifier = Modifier.padding(Dimens.HeroPadding)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = stringResource(R.string.dashboard_estimated_spend, month.format(monthFormatter)),
@@ -170,8 +161,7 @@ fun SpendSummaryCard(
                     )
                     MonthChangeChip(change = changeFromPreviousMonth, previousMonth = month.minusMonths(1))
                 }
-                // Keeps the figures clear of the share tab on the card's right edge.
-                Column(modifier = Modifier.padding(end = Dimens.ShareTabWidth)) {
+                Column {
                     Text(
                         text = stringResource(R.string.money_total, monthlyTotal),
                         modifier = Modifier.padding(top = Dimens.SpacingTiny, bottom = Dimens.SpacingMedium),
@@ -182,15 +172,6 @@ fun SpendSummaryCard(
                     }
                 }
             }
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .padding(top = Dimens.ShareTabTopOffset, bottom = Dimens.HeroPadding),
-                contentAlignment = Alignment.CenterEnd
-            ) {
-                ShareTab(onClick = onShareClick)
-            }
-        }
     }
 }
 
@@ -232,7 +213,7 @@ fun ReadingRow(summary: ReadingSummary, onClick: () -> Unit, modifier: Modifier 
 }
 
 @Composable
-private fun DashboardTopBar(onRefreshClick: () -> Unit) {
+private fun DashboardTopBar() {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Surface(
             modifier = Modifier.size(Dimens.IconCircleSize),
@@ -262,30 +243,6 @@ private fun DashboardTopBar(onRefreshClick: () -> Unit) {
                 Spacer(modifier = Modifier.width(Dimens.SpacingTiny))
                 Icon(
                     imageVector = Icons.Rounded.WavingHand,
-                    contentDescription = null,
-                    modifier = Modifier.size(Dimens.IconSizeSmall)
-                )
-            }
-        }
-        Surface(
-            onClick = onRefreshClick,
-            shape = RoundedCornerShape(Dimens.CornerRadiusMedium),
-            color = MaterialTheme.colorScheme.surface
-        ) {
-            Row(
-                modifier = Modifier.padding(
-                    horizontal = Dimens.SpacingLarge,
-                    vertical = Dimens.RowPaddingVertical
-                ),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(R.string.dashboard_shake),
-                    style = MaterialTheme.typography.labelLarge
-                )
-                Spacer(modifier = Modifier.width(Dimens.SpacingTiny))
-                Icon(
-                    imageVector = Icons.Rounded.Refresh,
                     contentDescription = null,
                     modifier = Modifier.size(Dimens.IconSizeSmall)
                 )
@@ -334,34 +291,10 @@ private fun SpendMetaItem(summary: UtilitySummary) {
 }
 
 @Composable
-private fun ShareTab(onClick: () -> Unit) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier
-            .fillMaxHeight()
-            .width(Dimens.ShareTabWidth),
-        shape = RoundedCornerShape(
-            topStart = Dimens.CornerRadiusLarge,
-            bottomStart = Dimens.CornerRadiusLarge
-        ),
-        color = MaterialTheme.colorScheme.secondary,
-        contentColor = MaterialTheme.colorScheme.onSecondary
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(
-                imageVector = Icons.Rounded.IosShare,
-                contentDescription = stringResource(R.string.dashboard_share_summary)
-            )
-        }
-    }
-}
-
-@Composable
 private fun QuickActionRow(
     onAddReadingClick: () -> Unit,
     onUsageClick: () -> Unit,
     onBillsClick: () -> Unit,
-    onShareClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -382,12 +315,6 @@ private fun QuickActionRow(
             icon = Icons.AutoMirrored.Rounded.ReceiptLong,
             labelRes = R.string.navigation_bills,
             onClick = onBillsClick
-        )
-        QuickAction(
-            icon = Icons.Rounded.IosShare,
-            labelRes = R.string.dashboard_action_share,
-            onClick = onShareClick,
-            containerColor = MaterialTheme.colorScheme.secondary
         )
     }
 }
@@ -498,22 +425,11 @@ private fun HousemateAvatar(housemate: Housemate) {
 }
 
 @Composable
-private fun RecentReadingsHeader(onSeeAllClick: () -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            text = stringResource(R.string.dashboard_recent_readings),
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.titleMedium
-        )
-        TextButton(onClick = onSeeAllClick) {
-            Text(
-                text = stringResource(R.string.dashboard_see_all),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onBackground,
-                textDecoration = TextDecoration.Underline
-            )
-        }
-    }
+private fun RecentReadingsHeader() {
+    Text(
+        text = stringResource(R.string.dashboard_recent_readings),
+        style = MaterialTheme.typography.titleMedium
+    )
 }
 
 @Composable
@@ -558,73 +474,6 @@ private fun UtilityIconCircle(type: UtilityType) {
 }
 
 @Composable
-private fun FloatingNavigationBar(
-    onAddReadingClick: () -> Unit,
-    onUsageClick: () -> Unit,
-    onBillsClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(Dimens.CornerRadiusNavigation),
-        color = MaterialTheme.colorScheme.inverseSurface
-    ) {
-        Row(
-            modifier = Modifier.padding(Dimens.NavigationPadding),
-            horizontalArrangement = Arrangement.spacedBy(Dimens.NavigationItemSpacing)
-        ) {
-            FloatingNavigationItem(
-                icon = Icons.Rounded.Home,
-                labelRes = R.string.navigation_home,
-                selected = true,
-                onClick = {}
-            )
-            FloatingNavigationItem(
-                icon = Icons.Rounded.Add,
-                labelRes = R.string.dashboard_add_reading,
-                selected = false,
-                onClick = onAddReadingClick
-            )
-            FloatingNavigationItem(
-                icon = Icons.Rounded.BarChart,
-                labelRes = R.string.navigation_usage,
-                selected = false,
-                onClick = onUsageClick
-            )
-            FloatingNavigationItem(
-                icon = Icons.AutoMirrored.Rounded.ReceiptLong,
-                labelRes = R.string.navigation_bills,
-                selected = false,
-                onClick = onBillsClick
-            )
-        }
-    }
-}
-
-@Composable
-private fun FloatingNavigationItem(
-    icon: ImageVector,
-    @StringRes labelRes: Int,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    Surface(
-        selected = selected,
-        onClick = onClick,
-        modifier = Modifier
-            .width(Dimens.NavigationItemWidth)
-            .heightIn(min = Dimens.NavigationItemHeight),
-        shape = RoundedCornerShape(Dimens.CornerRadiusLarge),
-        color = if (selected) MaterialTheme.colorScheme.secondary else Color.Transparent,
-        contentColor = if (selected) MaterialTheme.colorScheme.onSecondary else InkSoft
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(imageVector = icon, contentDescription = stringResource(labelRes))
-        }
-    }
-}
-
-@Composable
 private fun unitsLabel(type: UtilityType, units: Double): String {
     val unitRes = type.unitRes
     return if (unitRes == null) {
@@ -648,9 +497,6 @@ private fun DashboardScreenPreview() {
         DashboardScreen(
             state = dashboardStateFor(currentReportingMonth()),
             snackbarHostState = remember { SnackbarHostState() },
-            onRefreshClick = {},
-            onShareClick = {},
-            onSeeAllReadingsClick = {},
             onAddReadingClick = {},
             onReadingClick = {},
             onUsageClick = {},
@@ -669,8 +515,7 @@ private fun SpendSummaryCardPreview() {
                 month = state.month,
                 monthlyTotal = state.monthlyTotal,
                 changeFromPreviousMonth = state.changeFromPreviousMonth,
-                utilitySummaries = state.utilitySummaries,
-                onShareClick = {}
+                utilitySummaries = state.utilitySummaries
             )
         }
     }

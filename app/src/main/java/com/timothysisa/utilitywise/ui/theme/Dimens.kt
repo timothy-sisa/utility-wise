@@ -14,7 +14,6 @@ object Dimens {
 
     val CornerRadiusExtraSmall = 12.dp
     val CornerRadiusSmall = 14.dp
-    val CornerRadiusMedium = 22.dp
     val CornerRadiusLarge = 24.dp
     val CornerRadiusHero = 26.dp
     val CornerRadiusNavigation = 30.dp
@@ -27,8 +26,6 @@ object Dimens {
     val HeroPadding = 18.dp
     val HeroMinHeight = 168.dp
     val HeroMetaSpacing = 18.dp
-    val ShareTabWidth = 46.dp
-    val ShareTabTopOffset = 50.dp
 
     val IconSizeSmall = 20.dp
     val IconSizeMedium = 22.dp

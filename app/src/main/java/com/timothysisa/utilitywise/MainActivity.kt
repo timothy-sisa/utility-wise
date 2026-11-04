@@ -1,5 +1,7 @@
 package com.timothysisa.utilitywise
 
+import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -33,15 +35,20 @@ class MainActivity : ComponentActivity() {
                 DashboardScreen(
                     state = dashboardStateFor(currentReportingMonth()),
                     snackbarHostState = snackbarHostState,
-                    onRefreshClick = {},
-                    onShareClick = {},
-                    onSeeAllReadingsClick = {},
                     onAddReadingClick = { addReadingLauncher.launch(null) },
                     onReadingClick = { readingId -> addReadingLauncher.launch(readingId) },
                     onUsageClick = {},
-                    onBillsClick = {}
+                    onBillsClick = { startActivity(BillManagementActivity.newIntent(this@MainActivity)) }
                 )
             }
         }
+    }
+
+    companion object {
+        /** Creates an intent that returns to the existing dashboard when one is already present. */
+        fun newIntent(context: Context): Intent =
+            Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
     }
 }

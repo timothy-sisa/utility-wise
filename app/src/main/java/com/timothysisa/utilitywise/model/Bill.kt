@@ -9,5 +9,5 @@ data class Bill(
     val periodLabel: String,
     val dueDate: LocalDate,
     val isPaid: Boolean,
-    val people: Int
+    val sharedWith: Set<Long>
 )

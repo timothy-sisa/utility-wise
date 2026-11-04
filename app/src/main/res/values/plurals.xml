@@ -1,0 +1,6 @@
+<resources>
+    <plurals name="bills_people_count">
+        <item quantity="one">%d person</item>
+        <item quantity="other">%d people</item>
+    </plurals>
+</resources>
