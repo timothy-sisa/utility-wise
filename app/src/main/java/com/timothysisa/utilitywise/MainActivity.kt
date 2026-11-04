@@ -33,9 +33,6 @@ class MainActivity : ComponentActivity() {
                 DashboardScreen(
                     state = dashboardStateFor(currentReportingMonth()),
                     snackbarHostState = snackbarHostState,
-                    onRefreshClick = {},
-                    onShareClick = {},
-                    onSeeAllReadingsClick = {},
                     onAddReadingClick = { addReadingLauncher.launch(null) },
                     onReadingClick = { readingId -> addReadingLauncher.launch(readingId) },
                     onUsageClick = {},
