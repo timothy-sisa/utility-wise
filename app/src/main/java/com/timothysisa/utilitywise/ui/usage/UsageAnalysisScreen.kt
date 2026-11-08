@@ -19,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.time.format.DateTimeFormatter
@@ -217,7 +218,76 @@ fun UsageAnalysisScreen(
                 }
             }
 
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "Breakdown by bill",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                    state.utilityBreakdown.forEach { item ->
+                        BreakdownRow(item)
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(8.dp))
+        }
+    }
+}
+
+@Composable
+private fun BreakdownRow(item: UtilityCostBreakdown) {
+    val changeColor = when {
+        item.changeFromPreviousMonth > 0 -> MaterialTheme.colorScheme.error
+        item.changeFromPreviousMonth < 0 -> MaterialTheme.colorScheme.primary
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val sign = when {
+        item.changeFromPreviousMonth > 0 -> "+"
+        item.changeFromPreviousMonth < 0 -> "-"
+        else -> ""
+    }
+    val percentText = item.percentageChange?.let {
+        String.format(Locale.getDefault(), " (%s%.1f%%)", sign, kotlin.math.abs(it))
+    } ?: ""
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = stringResource(item.type.displayNameRes),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = "Last month: ${formatCurrency(item.previousMonthCost)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                text = formatCurrency(item.cost),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "$sign${formatCurrency(kotlin.math.abs(item.changeFromPreviousMonth))}$percentText",
+                style = MaterialTheme.typography.bodySmall,
+                color = changeColor
+            )
         }
     }
 }
