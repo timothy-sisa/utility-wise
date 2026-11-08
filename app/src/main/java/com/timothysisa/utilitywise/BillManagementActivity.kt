@@ -22,6 +22,7 @@ import com.timothysisa.utilitywise.model.Bill
 import com.timothysisa.utilitywise.model.Housemate
 import com.timothysisa.utilitywise.ui.bills.AddBillSheet
 import com.timothysisa.utilitywise.ui.bills.BillsScreen
+import com.timothysisa.utilitywise.ui.dashboard.currentReportingMonth
 import com.timothysisa.utilitywise.ui.theme.UtilityWiseTheme
 import com.timothysisa.utilitywise.ui.theme.enableLightEdgeToEdge
 import kotlinx.coroutines.launch
@@ -77,7 +78,11 @@ class BillManagementActivity : ComponentActivity() {
                     },
                     onBillClick = { selectedBillId = it.id },
                     onHomeClick = { startActivity(MainActivity.newIntent(this@BillManagementActivity)) },
-                    onUsageClick = {}
+                    onUsageClick = {
+                        startActivity(
+                            UsageAnalysisActivity.newIntent(this@BillManagementActivity, currentReportingMonth())
+                        )
+                    }
                 )
                 if (showAddBillSheet) {
                     AddBillSheet(

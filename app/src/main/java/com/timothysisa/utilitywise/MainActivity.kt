@@ -37,7 +37,11 @@ class MainActivity : ComponentActivity() {
                     snackbarHostState = snackbarHostState,
                     onAddReadingClick = { addReadingLauncher.launch(null) },
                     onReadingClick = { readingId -> addReadingLauncher.launch(readingId) },
-                    onUsageClick = {},
+                    onUsageClick = {
+                        startActivity(
+                            UsageAnalysisActivity.newIntent(this@MainActivity, currentReportingMonth())
+                        )
+                    },
                     onBillsClick = { startActivity(BillManagementActivity.newIntent(this@MainActivity)) }
                 )
             }
