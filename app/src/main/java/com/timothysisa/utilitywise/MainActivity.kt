@@ -6,7 +6,12 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.lifecycleScope
+import com.timothysisa.utilitywise.sensor.ShakeSensor
 import com.timothysisa.utilitywise.ui.dashboard.DashboardScreen
 import com.timothysisa.utilitywise.ui.dashboard.currentReportingMonth
 import com.timothysisa.utilitywise.ui.dashboard.dashboardStateFor
@@ -17,6 +22,13 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
 
     private val snackbarHostState = SnackbarHostState()
+
+    // The dashboard already recomposes when repository readings change, but the reporting month
+    // falls back to the clock, which Compose cannot observe. Bumping this forces a recompute.
+    private var dashboardRefreshCount by mutableIntStateOf(0)
+
+    // Lazy because system services are not available until the activity is attached to a context.
+    private val shakeSensor by lazy { ShakeSensor(this, onShake = ::refreshDashboard) }
 
     // Registered as a property so it exists before the activity starts, as the API requires.
     private val addReadingLauncher = registerForActivityResult(AddReadingContract()) { savedReadingId ->
@@ -32,8 +44,11 @@ class MainActivity : ComponentActivity() {
         enableLightEdgeToEdge()
         setContent {
             UtilityWiseTheme {
+                val dashboardState = key(dashboardRefreshCount) {
+                    dashboardStateFor(currentReportingMonth())
+                }
                 DashboardScreen(
-                    state = dashboardStateFor(currentReportingMonth()),
+                    state = dashboardState,
                     snackbarHostState = snackbarHostState,
                     onAddReadingClick = { addReadingLauncher.launch(null) },
                     onReadingClick = { readingId -> addReadingLauncher.launch(readingId) },
@@ -42,9 +57,29 @@ class MainActivity : ComponentActivity() {
                             UsageAnalysisActivity.newIntent(this@MainActivity, currentReportingMonth())
                         )
                     },
-                    onBillsClick = { startActivity(BillManagementActivity.newIntent(this@MainActivity)) }
+                    onBillsClick = { startActivity(BillManagementActivity.newIntent(this@MainActivity)) },
+                    onRefreshClick = ::refreshDashboard
                 )
             }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        shakeSensor.start()
+    }
+
+    override fun onPause() {
+        shakeSensor.stop()
+        super.onPause()
+    }
+
+    private fun refreshDashboard() {
+        dashboardRefreshCount++
+        lifecycleScope.launch {
+            // Replace rather than queue, so several quick refreshes show one message, not a backlog.
+            snackbarHostState.currentSnackbarData?.dismiss()
+            snackbarHostState.showSnackbar(getString(R.string.dashboard_refreshed))
         }
     }
 
