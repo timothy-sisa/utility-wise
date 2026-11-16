@@ -62,7 +62,8 @@ private const val READING_DATE_PATTERN = "d MMM"
 private const val SPEND_MONTH_PATTERN = "MMM yyyy"
 
 /**
- * The home screen. [onReadingClick] receives the id of the reading row the user tapped, and
+ * The home screen. [onReadingClick] receives the id of the reading row the user tapped,
+ * [onRefreshClick] fires when the already selected Home tab is tapped again, and
  * messages sent to [snackbarHostState] appear above the floating navigation bar.
  */
 @Composable
@@ -73,6 +74,7 @@ fun DashboardScreen(
     onReadingClick: (Long) -> Unit,
     onUsageClick: () -> Unit,
     onBillsClick: () -> Unit,
+    onRefreshClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Scaffold(
@@ -121,7 +123,7 @@ fun DashboardScreen(
             }
             FloatingNavigationBar(
                 selectedDestination = MainNavigationDestination.HOME,
-                onHomeClick = {},
+                onHomeClick = onRefreshClick,
                 onAddReadingClick = onAddReadingClick,
                 onUsageClick = onUsageClick,
                 onBillsClick = onBillsClick,
@@ -500,7 +502,8 @@ private fun DashboardScreenPreview() {
             onAddReadingClick = {},
             onReadingClick = {},
             onUsageClick = {},
-            onBillsClick = {}
+            onBillsClick = {},
+            onRefreshClick = {}
         )
     }
 }
