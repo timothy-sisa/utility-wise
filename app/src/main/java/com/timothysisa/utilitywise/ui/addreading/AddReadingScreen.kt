@@ -1,5 +1,9 @@
 package com.timothysisa.utilitywise.ui.addreading
 
+import android.content.Context
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -38,6 +42,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,6 +54,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -60,8 +66,12 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.core.content.ContextCompat
 import com.timothysisa.utilitywise.R
 import com.timothysisa.utilitywise.data.UtilityRepository
+import com.timothysisa.utilitywise.location.LOCATION_PERMISSIONS
+import com.timothysisa.utilitywise.location.LocationPermissionState
+import com.timothysisa.utilitywise.location.locationPermissionStateFrom
 import com.timothysisa.utilitywise.model.Reading
 import com.timothysisa.utilitywise.model.UtilityType
 import com.timothysisa.utilitywise.ui.icon
@@ -109,11 +119,27 @@ fun AddReadingRoute(
     val previousReading = previousReadingFor(form, readingToEdit?.id, today)
     val validation = validationFor(form, previousReading, readingToEdit?.id, today)
 
+    val context = LocalContext.current
+    // Not saved: after recreation the system's answer is the source of truth, so ask it again.
+    var locationPermission by remember { mutableStateOf(currentLocationPermission(context)) }
+    // Saved so that rotating the screen does not show the system dialog a second time.
+    var locationPermissionRequested by rememberSaveable { mutableStateOf(false) }
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { results -> locationPermission = locationPermissionStateFrom(results) }
+    LaunchedEffect(Unit) {
+        if (locationPermission == LocationPermissionState.Denied && !locationPermissionRequested) {
+            locationPermissionRequested = true
+            locationPermissionLauncher.launch(LOCATION_PERMISSIONS)
+        }
+    }
+
     AddReadingScreen(
         form = form,
         isEditing = readingToEdit != null,
         previousReading = previousReading,
         validation = validation,
+        locationPermission = locationPermission,
         today = today,
         onTypeSelect = { type ->
             form = form.withType(type, UtilityRepository.latestTariff(type))
@@ -146,7 +172,8 @@ fun AddReadingRoute(
 /**
  * The reading form. [previousReading] is the reading this one is measured from, or null
  * for the first reading of a meter. Errors in [validation] are only shown once [form] says
- * the user has left that field or tried to save.
+ * the user has left that field or tried to save. When [locationPermission] is denied the
+ * price is still entered by hand, and a note under the price field says so.
  */
 @Composable
 fun AddReadingScreen(
@@ -154,6 +181,7 @@ fun AddReadingScreen(
     isEditing: Boolean,
     previousReading: Reading?,
     validation: ReadingValidationResult,
+    locationPermission: LocationPermissionState,
     today: LocalDate,
     onTypeSelect: (UtilityType) -> Unit,
     onMeterTextChange: (String) -> Unit,
@@ -211,6 +239,7 @@ fun AddReadingScreen(
                         tariffText = form.tariffText,
                         unitName = unitName,
                         errorMessage = errors?.tariffError?.takeIf { form.showTariffError }?.message(),
+                        showLocationOff = locationPermission == LocationPermissionState.Denied,
                         onTariffTextChange = onTariffTextChange,
                         onTariffFieldLeave = onTariffFieldLeave,
                         modifier = Modifier.weight(1f)
@@ -558,6 +587,7 @@ private fun TariffField(
     tariffText: String,
     unitName: String,
     errorMessage: String?,
+    showLocationOff: Boolean,
     onTariffTextChange: (String) -> Unit,
     onTariffFieldLeave: () -> Unit,
     modifier: Modifier = Modifier
@@ -604,6 +634,7 @@ private fun TariffField(
             }
         }
         errorMessage?.let { FieldError(message = it) }
+        if (showLocationOff) FieldNote(message = stringResource(R.string.add_reading_location_off))
     }
 }
 
@@ -655,6 +686,16 @@ private fun FieldError(message: String) {
 }
 
 @Composable
+private fun FieldNote(message: String) {
+    Text(
+        text = message,
+        modifier = Modifier.padding(start = Dimens.SpacingSmall, top = Dimens.SpacingTiny),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+}
+
+@Composable
 private fun ReadingError.message(): String = when (this) {
     ReadingError.Required -> stringResource(R.string.error_required)
     ReadingError.NotANumber -> stringResource(R.string.error_not_a_number)
@@ -689,8 +730,19 @@ private fun Long.toUtcLocalDate(): LocalDate = Instant.ofEpochMilli(this).atZone
 @Composable
 private fun currentLocale(): Locale = LocalConfiguration.current.locales[0]
 
+private fun currentLocationPermission(context: Context): LocationPermissionState =
+    locationPermissionStateFrom(
+        LOCATION_PERMISSIONS.associateWith { permission ->
+            ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+        }
+    )
+
 @Composable
-private fun AddReadingScreenPreview(form: ReadingFormState, readingToEdit: Reading?) {
+private fun AddReadingScreenPreview(
+    form: ReadingFormState,
+    readingToEdit: Reading?,
+    locationPermission: LocationPermissionState = LocationPermissionState.Granted
+) {
     val today = LocalDate.now()
     val previousReading = previousReadingFor(form, readingToEdit?.id, today)
     UtilityWiseTheme {
@@ -699,6 +751,7 @@ private fun AddReadingScreenPreview(form: ReadingFormState, readingToEdit: Readi
             isEditing = readingToEdit != null,
             previousReading = previousReading,
             validation = validationFor(form, previousReading, readingToEdit?.id, today),
+            locationPermission = locationPermission,
             today = today,
             onTypeSelect = {},
             onMeterTextChange = {},
@@ -721,6 +774,21 @@ private fun NewReadingPreview() {
         latestTariff = UtilityRepository.latestTariff(DEFAULT_TYPE)
     )
     AddReadingScreenPreview(form = form.copy(meterText = "24054"), readingToEdit = null)
+}
+
+@Preview
+@Composable
+private fun LocationOffPreview() {
+    val form = ReadingFormState.forNewReading(
+        type = DEFAULT_TYPE,
+        today = LocalDate.now(),
+        latestTariff = UtilityRepository.latestTariff(DEFAULT_TYPE)
+    )
+    AddReadingScreenPreview(
+        form = form.copy(meterText = "24054"),
+        readingToEdit = null,
+        locationPermission = LocationPermissionState.Denied
+    )
 }
 
 @Preview
