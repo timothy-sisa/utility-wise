@@ -2,6 +2,7 @@ package com.timothysisa.utilitywise.data
 
 import androidx.compose.runtime.mutableStateListOf
 import com.timothysisa.utilitywise.model.Bill
+import com.timothysisa.utilitywise.model.House
 import com.timothysisa.utilitywise.model.Housemate
 import com.timothysisa.utilitywise.model.Reading
 import com.timothysisa.utilitywise.model.UtilityType
@@ -76,6 +77,23 @@ object UtilityRepository {
     val bills: List<Bill> = mutableBills
 
     val housemates: List<Housemate> = mutableHousemates
+
+    val houses: List<House> = listOf(
+        House(
+            id = 1,
+            name = "Dublin house share",
+            latitude = 53.3498,
+            longitude = -6.2603,
+            tariffs = mapOf(UtilityType.ELECTRICITY to ELECTRICITY_TARIFF, UtilityType.GAS to GAS_TARIFF)
+        ),
+        House(
+            id = 2,
+            name = "Cork family home",
+            latitude = 51.8985,
+            longitude = -8.4756,
+            tariffs = mapOf(UtilityType.ELECTRICITY to 0.31, UtilityType.GAS to 0.12)
+        )
+    )
 
     /** Returns the reading with the given [id], or null if there is none. */
     fun getReadingById(id: Long): Reading? = mutableReadings.firstOrNull { it.id == id }
