@@ -138,16 +138,22 @@ fun AddReadingRoute(
         }
     }
 
-    var selectedHouse by remember { mutableStateOf<House?>(null) }
+    // Saved so that a house picked by hand survives rotation.
+    var selectedHouseId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val selectedHouse = UtilityRepository.houses.firstOrNull { it.id == selectedHouseId }
     // Saved so that a price the user typed is not replaced when the lookup reruns after rotation.
     var tariffTyped by rememberSaveable { mutableStateOf(false) }
+    fun selectHouse(house: House) {
+        selectedHouseId = house.id
+        val tariff = tariffFor(house, form.type)
+        if (tariff != null && !tariffTyped) form = form.withType(form.type, tariff)
+    }
     LaunchedEffect(locationPermission) {
         if (readingToEdit != null || locationPermission != LocationPermissionState.Granted) return@LaunchedEffect
         val here = FusedLocationProvider(context).currentLocation() ?: return@LaunchedEffect
         val house = nearestHouse(here.latitude, here.longitude, UtilityRepository.houses) ?: return@LaunchedEffect
-        selectedHouse = house
-        val tariff = tariffFor(house, form.type)
-        if (tariff != null && !tariffTyped) form = form.withType(form.type, tariff)
+        // The lookup may finish after the user has already picked a house.
+        if (selectedHouseId == null) selectHouse(house)
     }
 
     AddReadingScreen(
@@ -157,7 +163,9 @@ fun AddReadingRoute(
         validation = validation,
         locationPermission = locationPermission,
         today = today,
-        houseName = selectedHouse?.name,
+        houses = UtilityRepository.houses,
+        selectedHouse = selectedHouse,
+        onHouseSelect = ::selectHouse,
         onTypeSelect = { type ->
             form = form.withType(type, tariffFor(selectedHouse, type) ?: UtilityRepository.latestTariff(type))
             tariffTyped = false
@@ -204,6 +212,9 @@ fun AddReadingScreen(
     validation: ReadingValidationResult,
     locationPermission: LocationPermissionState,
     today: LocalDate,
+    houses: List<House>,
+    selectedHouse: House?,
+    onHouseSelect: (House) -> Unit,
     onTypeSelect: (UtilityType) -> Unit,
     onMeterTextChange: (String) -> Unit,
     onMeterFieldLeave: () -> Unit,
@@ -212,8 +223,7 @@ fun AddReadingScreen(
     onTariffFieldLeave: () -> Unit,
     onSaveClick: () -> Unit,
     onBackClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    houseName: String? = null
+    modifier: Modifier = Modifier
 ) {
     val errors =validation as? ReadingValidationResult.Invalid
     val validReading = validation as? ReadingValidationResult.Valid
@@ -249,6 +259,7 @@ fun AddReadingScreen(
                     onMeterTextChange = onMeterTextChange,
                     onMeterFieldLeave = onMeterFieldLeave
                 )
+                if (!isEditing) HousePicker(houses = houses, selectedHouse = selectedHouse, onHouseSelect = onHouseSelect)
                 Row(horizontalArrangement = Arrangement.spacedBy(Dimens.SpacingMedium)) {
                     DateField(
                         date = form.date,
@@ -262,7 +273,7 @@ fun AddReadingScreen(
                         unitName = unitName,
                         errorMessage = errors?.tariffError?.takeIf { form.showTariffError }?.message(),
                         showLocationOff = locationPermission == LocationPermissionState.Denied,
-                        houseName = houseName,
+                        houseName = selectedHouse?.name,
                         onTariffTextChange = onTariffTextChange,
                         onTariffFieldLeave = onTariffFieldLeave,
                         modifier = Modifier.weight(1f)
@@ -345,6 +356,33 @@ private fun UtilityTypePicker(selectedType: UtilityType, onTypeSelect: (UtilityT
                     )
                     Spacer(modifier = Modifier.width(Dimens.SpacingSmall))
                     Text(text = stringResource(type.displayNameRes), style = MaterialTheme.typography.titleSmall)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HousePicker(houses: List<House>, selectedHouse: House?, onHouseSelect: (House) -> Unit) {
+    Row(
+        modifier = Modifier.selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(Dimens.SpacingMedium)
+    ) {
+        houses.forEach { house ->
+            val selected = house == selectedHouse
+            Surface(
+                selected = selected,
+                onClick = { onHouseSelect(house) },
+                modifier = Modifier
+                    .weight(1f)
+                    .height(Dimens.ButtonHeight)
+                    .semantics { role = Role.RadioButton },
+                shape = CircleShape,
+                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                contentColor = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(text = house.name, style = MaterialTheme.typography.titleSmall)
                 }
             }
         }
@@ -778,6 +816,9 @@ private fun AddReadingScreenPreview(
             validation = validationFor(form, previousReading, readingToEdit?.id, today),
             locationPermission = locationPermission,
             today = today,
+            houses = UtilityRepository.houses,
+            selectedHouse = null,
+            onHouseSelect = {},
             onTypeSelect = {},
             onMeterTextChange = {},
             onMeterFieldLeave = {},
