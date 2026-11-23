@@ -44,6 +44,7 @@
     <string name="add_reading_price_per_unit">Price per %1$s</string>
     <string name="add_reading_currency_symbol">€</string>
     <string name="add_reading_location_off">Location off, price set by hand</string>
+    <string name="add_reading_price_for_house">Price for %1$s</string>
     <string name="add_reading_adds_about">This reading adds about</string>
     <string name="add_reading_cost_breakdown">%1$s × %2$s</string>
     <string name="add_reading_save">Save reading</string>

@@ -69,9 +69,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.ContextCompat
 import com.timothysisa.utilitywise.R
 import com.timothysisa.utilitywise.data.UtilityRepository
+import com.timothysisa.utilitywise.location.FusedLocationProvider
 import com.timothysisa.utilitywise.location.LOCATION_PERMISSIONS
 import com.timothysisa.utilitywise.location.LocationPermissionState
 import com.timothysisa.utilitywise.location.locationPermissionStateFrom
+import com.timothysisa.utilitywise.location.nearestHouse
+import com.timothysisa.utilitywise.location.tariffFor
+import com.timothysisa.utilitywise.model.House
 import com.timothysisa.utilitywise.model.Reading
 import com.timothysisa.utilitywise.model.UtilityType
 import com.timothysisa.utilitywise.ui.icon
@@ -134,6 +138,18 @@ fun AddReadingRoute(
         }
     }
 
+    var selectedHouse by remember { mutableStateOf<House?>(null) }
+    // Saved so that a price the user typed is not replaced when the lookup reruns after rotation.
+    var tariffTyped by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(locationPermission) {
+        if (readingToEdit != null || locationPermission != LocationPermissionState.Granted) return@LaunchedEffect
+        val here = FusedLocationProvider(context).currentLocation() ?: return@LaunchedEffect
+        val house = nearestHouse(here.latitude, here.longitude, UtilityRepository.houses) ?: return@LaunchedEffect
+        selectedHouse = house
+        val tariff = tariffFor(house, form.type)
+        if (tariff != null && !tariffTyped) form = form.withType(form.type, tariff)
+    }
+
     AddReadingScreen(
         form = form,
         isEditing = readingToEdit != null,
@@ -141,13 +157,18 @@ fun AddReadingRoute(
         validation = validation,
         locationPermission = locationPermission,
         today = today,
+        houseName = selectedHouse?.name,
         onTypeSelect = { type ->
-            form = form.withType(type, UtilityRepository.latestTariff(type))
+            form = form.withType(type, tariffFor(selectedHouse, type) ?: UtilityRepository.latestTariff(type))
+            tariffTyped = false
         },
         onMeterTextChange = { text -> form = form.copy(meterText = text) },
         onMeterFieldLeave = { form = form.copy(meterFieldLeft = true) },
         onDateSelect = { date -> form = form.copy(date = date) },
-        onTariffTextChange = { text -> form = form.copy(tariffText = text) },
+        onTariffTextChange = { text ->
+            tariffTyped = true
+            form = form.copy(tariffText = text)
+        },
         onTariffFieldLeave = { form = form.copy(tariffFieldLeft = true) },
         onSaveClick = {
             when (validation) {
@@ -191,9 +212,10 @@ fun AddReadingScreen(
     onTariffFieldLeave: () -> Unit,
     onSaveClick: () -> Unit,
     onBackClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    houseName: String? = null
 ) {
-    val errors = validation as? ReadingValidationResult.Invalid
+    val errors =validation as? ReadingValidationResult.Invalid
     val validReading = validation as? ReadingValidationResult.Valid
     val unitsAdded = if (validReading != null && previousReading != null) {
         validReading.meterValue - previousReading.value
@@ -240,6 +262,7 @@ fun AddReadingScreen(
                         unitName = unitName,
                         errorMessage = errors?.tariffError?.takeIf { form.showTariffError }?.message(),
                         showLocationOff = locationPermission == LocationPermissionState.Denied,
+                        houseName = houseName,
                         onTariffTextChange = onTariffTextChange,
                         onTariffFieldLeave = onTariffFieldLeave,
                         modifier = Modifier.weight(1f)
@@ -588,6 +611,7 @@ private fun TariffField(
     unitName: String,
     errorMessage: String?,
     showLocationOff: Boolean,
+    houseName: String?,
     onTariffTextChange: (String) -> Unit,
     onTariffFieldLeave: () -> Unit,
     modifier: Modifier = Modifier
@@ -635,6 +659,7 @@ private fun TariffField(
         }
         errorMessage?.let { FieldError(message = it) }
         if (showLocationOff) FieldNote(message = stringResource(R.string.add_reading_location_off))
+        houseName?.let { FieldNote(message = stringResource(R.string.add_reading_price_for_house, it)) }
     }
 }
 
