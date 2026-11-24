@@ -47,6 +47,11 @@
     <string name="add_reading_price_for_house">Price for %1$s</string>
     <string name="add_reading_adds_about">This reading adds about</string>
     <string name="add_reading_cost_breakdown">%1$s × %2$s</string>
+    <string name="add_reading_photo_hint">Add a photo of the meter</string>
+    <string name="add_reading_photo_added">Photo added</string>
+    <string name="add_reading_photo_remove">Remove</string>
+    <string name="add_reading_take_photo">Take photo</string>
+    <string name="add_reading_choose_image">Choose image</string>
     <string name="add_reading_save">Save reading</string>
     <string name="add_reading_not_found">That reading no longer exists</string>
 

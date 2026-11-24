@@ -2,7 +2,9 @@ package com.timothysisa.utilitywise.ui.addreading
 
 import android.content.Context
 import android.content.pm.PackageManager
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
@@ -36,6 +38,7 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -67,6 +70,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import com.timothysisa.utilitywise.R
 import com.timothysisa.utilitywise.data.UtilityRepository
 import com.timothysisa.utilitywise.location.FusedLocationProvider
@@ -85,6 +89,7 @@ import com.timothysisa.utilitywise.ui.theme.UtilityWiseTheme
 import com.timothysisa.utilitywise.validation.ReadingError
 import com.timothysisa.utilitywise.validation.ReadingValidationResult
 import com.timothysisa.utilitywise.validation.ReadingValidator
+import java.io.File
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -279,6 +284,7 @@ fun AddReadingScreen(
                         modifier = Modifier.weight(1f)
                     )
                 }
+                if (!isEditing) PhotoCard()
                 if (validReading != null && unitsAdded != null) {
                     CostPreview(units = unitsAdded, tariff = validReading.tariff, unitName = unitName)
                 }
@@ -384,6 +390,55 @@ private fun HousePicker(houses: List<House>, selectedHouse: House?, onHouseSelec
                 Box(contentAlignment = Alignment.Center) {
                     Text(text = house.name, style = MaterialTheme.typography.titleSmall)
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PhotoCard() {
+    val context = LocalContext.current
+    var photoUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+    var pendingUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+    val takePhoto = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
+        if (saved) photoUri = pendingUri
+    }
+    val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) photoUri = uri
+    }
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(Dimens.CornerRadiusLarge),
+        color = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier.padding(Dimens.HeroPadding),
+            verticalArrangement = Arrangement.spacedBy(Dimens.SpacingMedium)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stringResource(if (photoUri == null) R.string.add_reading_photo_hint else R.string.add_reading_photo_added),
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleMedium
+                )
+                if (photoUri != null) {
+                    TextButton(onClick = { photoUri = null }) { Text(stringResource(R.string.add_reading_photo_remove)) }
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(Dimens.SpacingMedium)) {
+                OutlinedButton(
+                    onClick = {
+                        val dir = File(context.cacheDir, "photos").apply { mkdirs() }
+                        val file = File.createTempFile("reading_", ".jpg", dir)
+                        pendingUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                        takePhoto.launch(pendingUri!!)
+                    },
+                    modifier = Modifier.weight(1f)
+                ) { Text(stringResource(R.string.add_reading_take_photo)) }
+                OutlinedButton(
+                    onClick = { pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                    modifier = Modifier.weight(1f)
+                ) { Text(stringResource(R.string.add_reading_choose_image)) }
             }
         }
     }
