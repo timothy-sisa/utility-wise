@@ -69,9 +69,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.ContextCompat
 import com.timothysisa.utilitywise.R
 import com.timothysisa.utilitywise.data.UtilityRepository
+import com.timothysisa.utilitywise.location.FusedLocationProvider
 import com.timothysisa.utilitywise.location.LOCATION_PERMISSIONS
 import com.timothysisa.utilitywise.location.LocationPermissionState
 import com.timothysisa.utilitywise.location.locationPermissionStateFrom
+import com.timothysisa.utilitywise.location.nearestHouse
+import com.timothysisa.utilitywise.location.tariffFor
+import com.timothysisa.utilitywise.model.House
 import com.timothysisa.utilitywise.model.Reading
 import com.timothysisa.utilitywise.model.UtilityType
 import com.timothysisa.utilitywise.ui.icon
@@ -134,6 +138,24 @@ fun AddReadingRoute(
         }
     }
 
+    // Saved so that a house picked by hand survives rotation.
+    var selectedHouseId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val selectedHouse = UtilityRepository.houses.firstOrNull { it.id == selectedHouseId }
+    // Saved so that a price the user typed is not replaced when the lookup reruns after rotation.
+    var tariffTyped by rememberSaveable { mutableStateOf(false) }
+    fun selectHouse(house: House) {
+        selectedHouseId = house.id
+        val tariff = tariffFor(house, form.type)
+        if (tariff != null && !tariffTyped) form = form.withType(form.type, tariff)
+    }
+    LaunchedEffect(locationPermission) {
+        if (readingToEdit != null || locationPermission != LocationPermissionState.Granted) return@LaunchedEffect
+        val here = FusedLocationProvider(context).currentLocation() ?: return@LaunchedEffect
+        val house = nearestHouse(here.latitude, here.longitude, UtilityRepository.houses) ?: return@LaunchedEffect
+        // The lookup may finish after the user has already picked a house.
+        if (selectedHouseId == null) selectHouse(house)
+    }
+
     AddReadingScreen(
         form = form,
         isEditing = readingToEdit != null,
@@ -141,13 +163,20 @@ fun AddReadingRoute(
         validation = validation,
         locationPermission = locationPermission,
         today = today,
+        houses = UtilityRepository.houses,
+        selectedHouse = selectedHouse,
+        onHouseSelect = ::selectHouse,
         onTypeSelect = { type ->
-            form = form.withType(type, UtilityRepository.latestTariff(type))
+            form = form.withType(type, tariffFor(selectedHouse, type) ?: UtilityRepository.latestTariff(type))
+            tariffTyped = false
         },
         onMeterTextChange = { text -> form = form.copy(meterText = text) },
         onMeterFieldLeave = { form = form.copy(meterFieldLeft = true) },
         onDateSelect = { date -> form = form.copy(date = date) },
-        onTariffTextChange = { text -> form = form.copy(tariffText = text) },
+        onTariffTextChange = { text ->
+            tariffTyped = true
+            form = form.copy(tariffText = text)
+        },
         onTariffFieldLeave = { form = form.copy(tariffFieldLeft = true) },
         onSaveClick = {
             when (validation) {
@@ -183,6 +212,9 @@ fun AddReadingScreen(
     validation: ReadingValidationResult,
     locationPermission: LocationPermissionState,
     today: LocalDate,
+    houses: List<House>,
+    selectedHouse: House?,
+    onHouseSelect: (House) -> Unit,
     onTypeSelect: (UtilityType) -> Unit,
     onMeterTextChange: (String) -> Unit,
     onMeterFieldLeave: () -> Unit,
@@ -193,7 +225,7 @@ fun AddReadingScreen(
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val errors = validation as? ReadingValidationResult.Invalid
+    val errors =validation as? ReadingValidationResult.Invalid
     val validReading = validation as? ReadingValidationResult.Valid
     val unitsAdded = if (validReading != null && previousReading != null) {
         validReading.meterValue - previousReading.value
@@ -227,6 +259,7 @@ fun AddReadingScreen(
                     onMeterTextChange = onMeterTextChange,
                     onMeterFieldLeave = onMeterFieldLeave
                 )
+                if (!isEditing) HousePicker(houses = houses, selectedHouse = selectedHouse, onHouseSelect = onHouseSelect)
                 Row(horizontalArrangement = Arrangement.spacedBy(Dimens.SpacingMedium)) {
                     DateField(
                         date = form.date,
@@ -240,6 +273,7 @@ fun AddReadingScreen(
                         unitName = unitName,
                         errorMessage = errors?.tariffError?.takeIf { form.showTariffError }?.message(),
                         showLocationOff = locationPermission == LocationPermissionState.Denied,
+                        houseName = selectedHouse?.name,
                         onTariffTextChange = onTariffTextChange,
                         onTariffFieldLeave = onTariffFieldLeave,
                         modifier = Modifier.weight(1f)
@@ -322,6 +356,33 @@ private fun UtilityTypePicker(selectedType: UtilityType, onTypeSelect: (UtilityT
                     )
                     Spacer(modifier = Modifier.width(Dimens.SpacingSmall))
                     Text(text = stringResource(type.displayNameRes), style = MaterialTheme.typography.titleSmall)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HousePicker(houses: List<House>, selectedHouse: House?, onHouseSelect: (House) -> Unit) {
+    Row(
+        modifier = Modifier.selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(Dimens.SpacingMedium)
+    ) {
+        houses.forEach { house ->
+            val selected = house == selectedHouse
+            Surface(
+                selected = selected,
+                onClick = { onHouseSelect(house) },
+                modifier = Modifier
+                    .weight(1f)
+                    .height(Dimens.ButtonHeight)
+                    .semantics { role = Role.RadioButton },
+                shape = CircleShape,
+                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                contentColor = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(text = house.name, style = MaterialTheme.typography.titleSmall)
                 }
             }
         }
@@ -588,6 +649,7 @@ private fun TariffField(
     unitName: String,
     errorMessage: String?,
     showLocationOff: Boolean,
+    houseName: String?,
     onTariffTextChange: (String) -> Unit,
     onTariffFieldLeave: () -> Unit,
     modifier: Modifier = Modifier
@@ -635,6 +697,7 @@ private fun TariffField(
         }
         errorMessage?.let { FieldError(message = it) }
         if (showLocationOff) FieldNote(message = stringResource(R.string.add_reading_location_off))
+        houseName?.let { FieldNote(message = stringResource(R.string.add_reading_price_for_house, it)) }
     }
 }
 
@@ -753,6 +816,9 @@ private fun AddReadingScreenPreview(
             validation = validationFor(form, previousReading, readingToEdit?.id, today),
             locationPermission = locationPermission,
             today = today,
+            houses = UtilityRepository.houses,
+            selectedHouse = null,
+            onHouseSelect = {},
             onTypeSelect = {},
             onMeterTextChange = {},
             onMeterFieldLeave = {},
