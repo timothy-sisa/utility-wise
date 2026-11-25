@@ -43,4 +43,5 @@ object Dimens {
     val FocusBorderWidth = 2.dp
     val MeterDigitHeight = 64.dp
     val MeterDigitSpacing = 6.dp
+    val PhotoThumbnailHeight = 120.dp
 }
