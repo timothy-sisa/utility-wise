@@ -2,9 +2,13 @@ package com.timothysisa.utilitywise.ui.addreading
 
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +40,7 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -45,13 +50,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -67,6 +76,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import com.timothysisa.utilitywise.R
 import com.timothysisa.utilitywise.data.UtilityRepository
 import com.timothysisa.utilitywise.location.FusedLocationProvider
@@ -85,15 +95,19 @@ import com.timothysisa.utilitywise.ui.theme.UtilityWiseTheme
 import com.timothysisa.utilitywise.validation.ReadingError
 import com.timothysisa.utilitywise.validation.ReadingValidationResult
 import com.timothysisa.utilitywise.validation.ReadingValidator
+import java.io.File
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private const val METER_DIGIT_COUNT = 7
 private const val SHORT_DATE_PATTERN = "d MMM"
 private const val FULL_DATE_PATTERN = "d MMM yyyy"
+private const val THUMBNAIL_TARGET_PX = 480
 
 private val DEFAULT_TYPE = UtilityType.ELECTRICITY
 
@@ -156,6 +170,9 @@ fun AddReadingRoute(
         if (selectedHouseId == null) selectHouse(house)
     }
 
+    // Saved so that a photo taken or picked survives rotation.
+    var photoUri by rememberSaveable { mutableStateOf(readingToEdit?.photoUri) }
+
     AddReadingScreen(
         form = form,
         isEditing = readingToEdit != null,
@@ -165,6 +182,8 @@ fun AddReadingRoute(
         today = today,
         houses = UtilityRepository.houses,
         selectedHouse = selectedHouse,
+        photoUri = photoUri,
+        onPhotoChange = { photoUri = it },
         onHouseSelect = ::selectHouse,
         onTypeSelect = { type ->
             form = form.withType(type, tariffFor(selectedHouse, type) ?: UtilityRepository.latestTariff(type))
@@ -187,7 +206,7 @@ fun AddReadingRoute(
                         value = validation.meterValue,
                         date = validation.date,
                         tariff = validation.tariff,
-                        photoUri = readingToEdit?.photoUri
+                        photoUri = photoUri
                     )
                 )
                 is ReadingValidationResult.Invalid -> form = form.copy(saveAttempted = true)
@@ -214,6 +233,8 @@ fun AddReadingScreen(
     today: LocalDate,
     houses: List<House>,
     selectedHouse: House?,
+    photoUri: String?,
+    onPhotoChange: (String?) -> Unit,
     onHouseSelect: (House) -> Unit,
     onTypeSelect: (UtilityType) -> Unit,
     onMeterTextChange: (String) -> Unit,
@@ -279,6 +300,7 @@ fun AddReadingScreen(
                         modifier = Modifier.weight(1f)
                     )
                 }
+                PhotoCard(photoUri = photoUri, onPhotoChange = onPhotoChange)
                 if (validReading != null && unitsAdded != null) {
                     CostPreview(units = unitsAdded, tariff = validReading.tariff, unitName = unitName)
                 }
@@ -384,6 +406,67 @@ private fun HousePicker(houses: List<House>, selectedHouse: House?, onHouseSelec
                 Box(contentAlignment = Alignment.Center) {
                     Text(text = house.name, style = MaterialTheme.typography.titleSmall)
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PhotoCard(photoUri: String?, onPhotoChange: (String?) -> Unit) {
+    val context = LocalContext.current
+    var pendingUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+    val takePhoto = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
+        if (saved) onPhotoChange(pendingUri.toString())
+    }
+    val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) onPhotoChange(uri.toString())
+    }
+    val thumbnail by produceState<ImageBitmap?>(initialValue = null, photoUri) {
+        value = photoUri?.let { withContext(Dispatchers.IO) { decodeThumbnail(context, Uri.parse(it)) } }
+    }
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(Dimens.CornerRadiusLarge),
+        color = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier.padding(Dimens.HeroPadding),
+            verticalArrangement = Arrangement.spacedBy(Dimens.SpacingMedium)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(modifier = Modifier.weight(1f)) {
+                    if (photoUri == null) {
+                        Text(text = stringResource(R.string.add_reading_photo_hint), style = MaterialTheme.typography.titleMedium)
+                    } else {
+                        thumbnail?.let {
+                            Image(
+                                bitmap = it,
+                                contentDescription = stringResource(R.string.add_reading_photo_added),
+                                modifier = Modifier
+                                    .height(Dimens.PhotoThumbnailHeight)
+                                    .clip(RoundedCornerShape(Dimens.CornerRadiusExtraSmall))
+                            )
+                        }
+                    }
+                }
+                if (photoUri != null) {
+                    TextButton(onClick = { onPhotoChange(null) }) { Text(stringResource(R.string.add_reading_photo_remove)) }
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(Dimens.SpacingMedium)) {
+                OutlinedButton(
+                    onClick = {
+                        val dir = File(context.cacheDir, "photos").apply { mkdirs() }
+                        val file = File.createTempFile("reading_", ".jpg", dir)
+                        pendingUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                        takePhoto.launch(pendingUri!!)
+                    },
+                    modifier = Modifier.weight(1f)
+                ) { Text(stringResource(R.string.add_reading_take_photo)) }
+                OutlinedButton(
+                    onClick = { pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                    modifier = Modifier.weight(1f)
+                ) { Text(stringResource(R.string.add_reading_choose_image)) }
             }
         }
     }
@@ -793,6 +876,18 @@ private fun Long.toUtcLocalDate(): LocalDate = Instant.ofEpochMilli(this).atZone
 @Composable
 private fun currentLocale(): Locale = LocalConfiguration.current.locales[0]
 
+// Reads the image twice, bounds first, so a full camera photo is never decoded at full size.
+private fun decodeThumbnail(context: Context, uri: Uri): ImageBitmap? = runCatching {
+    fun decode(options: BitmapFactory.Options) =
+        context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    decode(bounds)
+    val sampled = BitmapFactory.Options().apply {
+        inSampleSize = photoSampleSize(bounds.outWidth, bounds.outHeight, THUMBNAIL_TARGET_PX, THUMBNAIL_TARGET_PX)
+    }
+    decode(sampled)?.asImageBitmap()
+}.getOrNull()
+
 private fun currentLocationPermission(context: Context): LocationPermissionState =
     locationPermissionStateFrom(
         LOCATION_PERMISSIONS.associateWith { permission ->
@@ -818,6 +913,8 @@ private fun AddReadingScreenPreview(
             today = today,
             houses = UtilityRepository.houses,
             selectedHouse = null,
+            photoUri = null,
+            onPhotoChange = {},
             onHouseSelect = {},
             onTypeSelect = {},
             onMeterTextChange = {},
